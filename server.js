@@ -4,6 +4,8 @@ require('dotenv').config()
 const fs = require('fs');
 const express = require('express');
 const app = express();
+const request = require('request');
+const cheerio = require('cheerio');
 const CronJob = require('cron').CronJob;
 const Twit = require('twit');
 
@@ -16,33 +18,39 @@ const config = {
 
 let T = new Twit(config);
 
+let redditPosts = [];
+
 app.use(express.static('public'));
 
 let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
-    // every two hours
-    (new CronJob('* */2 * * * *', function () {
-        var b64content = fs.readFileSync('C:\\Users\\gonza\\Downloads\\unnamed.jpg', { encoding: 'base64' })
-        T.post('media/upload', { media_data: b64content }, function (err, data, response) {
-            var mediaIdStr = data.media_id_string
-            var altText = "Small flowers in a planter on a sunny balcony, blossoming."
-            var meta_params = { media_id: mediaIdStr, alt_text: { text: altText } }
-            T.post('media/metadata/create', meta_params, function (err, data, response) {
-                if (err) {
-                    console.log('Error at media/metadata/create: ', err);
-                } else {
-                    var params = { status: 'loving life #nofilter', media_ids: [mediaIdStr] }
-                    T.post('statuses/update', params, function (err, data, response) {
-                        if (err) {
-                            console.log('Error at statuses/update: ', err);
-                        } else {
-                            console.log('tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
-                        }
-                    })
-                }
-            })
-        })
+    // fetch reddit posts everyday at midnight
+    (new CronJob('0 0 * * *', function () {
+        request('https://old.reddit.com/r/HistoryPorn/', function (err, res, body) {
+            if (err) {
+                console.log('Error at fetching reddit: ', err);
+            } else {
+                let $ = cheerio.load(body);
+                $('p.title a.title').each(function () {
+                    const post = $(this)[0].children[0];
+                    redditPosts.push({ 'status': post.data, 'image_url': post.parent.attribs['href'] })
+                });
+            }
+        });
     })).start();
 
+    // tweet every 12hrs
+    (new CronJob('0 */12 * * *', function () {
+        const redditPost = redditPosts.pop();
+        const tweet = redditPost.status + ' #history ' + redditPost.image_url; 
+        T.post('statuses/update', { status: tweet }, function (err, data, response) {
+            if (err) {
+                console.log('Error at statuses/update', err);
+            }
+            else {
+                console.log('tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
+            }
+        });
+    })).start();
 });
