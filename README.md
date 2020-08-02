@@ -10,8 +10,8 @@ Requirements:
 - Twiiter Dev account and app
 
 How to use:  
-1- Create a new Twitter account and a new Twitter app. (See how.)   
-2- Update the .env file with your Twitter API key/secrets.   
+1- Create a new Twitter account and a new Twitter app.    
+2- Update the .env file with your Twitter API key/secrets. (use .env_sample as a template and rename it .env)   
 3- Start server (see below)  
 
 Run using NPM:
