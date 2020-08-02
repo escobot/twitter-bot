@@ -1,6 +1,10 @@
 # my-history-dosis
 
-The official twitter bot for @MyHistoryDosis
+MyHistoryDosis  
+[@DosisMy](https://twitter.com/DosisMy)  
+Exploring the past through historical photographs.
+
+New tweet every hour!
 
 ## Dev
 
