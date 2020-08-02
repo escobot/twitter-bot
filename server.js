@@ -44,8 +44,8 @@ let listener = app.listen(process.env.PORT, function () {
         });
     })).start();
 
-    // tweet every half hour
-    (new CronJob('*/30 * * * *', function () {
+    // tweet every 15mins
+    (new CronJob('*/15 * * * *', function () {
         const redditPost = redditPosts.pop();
         const tweet = redditPost.status + ' #historyporn #ColorizedHistory #oldpictures #OldPhotosInRealLife #OldSchoolCool ' 
         + 'https://www.reddit.com' + redditPost.image_url;
