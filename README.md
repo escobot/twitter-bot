@@ -4,7 +4,7 @@ MyHistoryDosis
 [@DosisMy](https://twitter.com/DosisMy)  
 Exploring the past through historical photographs.
 
-New tweet every hour!
+New tweet every half hour!
 
 ## Dev
 
