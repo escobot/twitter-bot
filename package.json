@@ -1,0 +1,28 @@
+{
+  "name": "my-history-dosis",
+  "version": "1.0.0",
+  "description": "exploring the past through historical photographs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pbgnz/my-history-dosis.git"
+  },
+  "author": "pbgnz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pbgnz/my-history-dosis/issues"
+  },
+  "homepage": "https://github.com/pbgnz/my-history-dosis#readme",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.3",
+    "cron": "^1.8.2",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "request": "^2.88.2",
+    "twit": "^2.2.11"
+  }
+}
