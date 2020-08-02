@@ -25,7 +25,7 @@ let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
     // fetch reddit posts everyday at midnight
-    (new CronJob('* * * * *'', function () {
+    (new CronJob('* * * * *', function () {
         request('https://old.reddit.com/r/HistoryPorn/', function (err, res, body) {
             if (err) {
                 console.log('Error at fetching reddit: ', err);
@@ -40,7 +40,7 @@ let listener = app.listen(process.env.PORT, function () {
     })).start();
 
     // tweet every 12hrs
-    (new CronJob('* * * * *'', function () {
+    (new CronJob('* * * * *', function () {
         const redditPost = redditPosts.pop();
         const tweet = redditPost.status + ' #history ' + redditPost.image_url; 
         T.post('statuses/update', { status: tweet }, function (err, data, response) {
