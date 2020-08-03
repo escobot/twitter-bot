@@ -36,10 +36,10 @@ let listener = app.listen(process.env.PORT, function () {
                 let $ = cheerio.load(body);
                 $('p.title a.title').each(function () {
                     const post = $(this)[0].children[0];
-                    if (!redditPosts.some(e => e.status === post.data) && !postedTweets.some(e => e === post.data)) {
+                    if (!redditPosts.some(e => e.status === post.data) && !postedTweets.some(e => e.slice(0,5) === post.data.slice(0,5))) {
                         console.log('Fetched reddit post: ' + post.data);
                         redditPosts.push({ 'status': post.data, 'image_url': post.parent.attribs['href'] });
-                        postedTweets.push(post.data);
+                        postedTweets.push(post.data.slice(0,5));
                     }
                 });
             }
