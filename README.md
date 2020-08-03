@@ -4,14 +4,14 @@ MyHistoryDosis
 [@DosisMy](https://twitter.com/DosisMy)  
 Exploring the past through historical photographs.
 
-New tweet every half hour!
+New tweet every 10 minutes!
 
 ## Dev
 
 Requirements:
 - NodeJS
 - NPM
-- Twiiter Dev account and app
+- Twitter Dev account and app
 
 How to use:  
 1- Create a new Twitter account and a new Twitter app.    
