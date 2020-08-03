@@ -49,8 +49,13 @@ let listener = app.listen(process.env.PORT, function () {
     // tweet every 10 mins
     (new CronJob('*/10 * * * *', function () {
         const redditPost = redditPosts.pop();
-        const tweet = redditPost.status + ' #historyporn #ColorizedHistory #oldpictures #OldPhotosInRealLife #OldSchoolCool ' 
-        + 'https://www.reddit.com' + redditPost.image_url;
+        let url = '';
+        if (redditPost.image_url.includes("http")) {
+            url = redditPost.image_url;
+        } else {
+            url = 'https://www.reddit.com' + redditPost.image_url;
+        }
+        const tweet = redditPost.status + ' #history #oldpictures ' + url;
         T.post('statuses/update', { status: tweet }, function (err, data, response) {
             if (err) {
                 console.log('Error at statuses/update', err);
