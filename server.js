@@ -19,13 +19,14 @@ let T = new Twit(config);
 
 let subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool'];
 let redditPosts = [];
+let postedTweets = [];
 
 app.use(express.static('public'));
 
 let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
-    // fetch reddit posts everyday 5 minutes
+    // fetch reddit posts every 5 minutes
     (new CronJob('*/5 * * * *', function () {
         const randomSubreddit = Math.floor(Math.random() * Math.floor(subreddits.length));
         request('https://old.reddit.com/r/' + subreddits[randomSubreddit], function (err, res, body) {
@@ -35,17 +36,18 @@ let listener = app.listen(process.env.PORT, function () {
                 let $ = cheerio.load(body);
                 $('p.title a.title').each(function () {
                     const post = $(this)[0].children[0];
-                    if (!redditPosts.some(e => e.status === post.data)) {
+                    if (!redditPosts.some(e => e.status === post.data) && !postedTweets.some(e => e === post.data)) {
                         console.log('Fetched reddit post: ' + post.data);
                         redditPosts.push({ 'status': post.data, 'image_url': post.parent.attribs['href'] });
+                        postedTweets.push(post.data);
                     }
                 });
             }
         });
     })).start();
 
-    // tweet every 15mins
-    (new CronJob('*/15 * * * *', function () {
+    // tweet every 10 mins
+    (new CronJob('*/10 * * * *', function () {
         const redditPost = redditPosts.pop();
         const tweet = redditPost.status + ' #historyporn #ColorizedHistory #oldpictures #OldPhotosInRealLife #OldSchoolCool ' 
         + 'https://www.reddit.com' + redditPost.image_url;
