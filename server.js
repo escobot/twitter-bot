@@ -62,11 +62,11 @@ let listener = app.listen(process.env.PORT, function () {
                     console.log('Error at statuses/update', err);
                 }
                 else {
-                    console.log('tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
+                    console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
                 }
             });
         } else {
-            console.log('Reddit posts fetched yet.');         
+            console.log('Reddit posts not fetched yet.');         
         }
     })).start();
 });
