@@ -26,8 +26,8 @@ app.use(express.static('public'));
 let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
-    // fetch reddit posts every 5 minutes
-    (new CronJob('*/5 * * * *', function () {
+    // fetch reddit posts every hour
+    (new CronJob('0 * * * *', function () {
         const randomSubreddit = Math.floor(Math.random() * Math.floor(subreddits.length));
         request('https://old.reddit.com/r/' + subreddits[randomSubreddit], function (err, res, body) {
             if (err) {
@@ -46,8 +46,8 @@ let listener = app.listen(process.env.PORT, function () {
         });
     })).start();
 
-    // tweet every 10 mins
-    (new CronJob('*/10 * * * *', function () {
+    // tweet every 2 hours
+    (new CronJob('0 */2 * * *', function () {
         if (redditPosts.length > 0) {
             const redditPost = redditPosts.pop();
             let url = '';
