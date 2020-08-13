@@ -27,7 +27,7 @@ let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
     // fetch reddit posts every hour
-    (new CronJob('0 * * * *', function () {
+    (new CronJob('* * * * *', function () {
         const randomSubreddit = Math.floor(Math.random() * Math.floor(subreddits.length));
         request('https://old.reddit.com/r/' + subreddits[randomSubreddit], function (err, res, body) {
             if (err) {
@@ -36,9 +36,14 @@ let listener = app.listen(process.env.PORT, function () {
                 let $ = cheerio.load(body);
                 $('p.title a.title').each(function () {
                     const post = $(this)[0].children[0];
+                    // make sure the post is not on the "to tweet" list and has not been tweeted.
                     if (!redditPosts.some(e => e.status === post.data) && !postedTweets.some(e => e.slice(0,5) === post.data.slice(0,5))) {
                         console.log('Fetched reddit post: ' + post.data);
-                        redditPosts.push({ 'status': post.data, 'image_url': post.parent.attribs['href'] });
+                        let url = post.parent.attribs['href'];
+                        // if the URL is an imagur link discard it.
+                        if (!url.includes("http")) {
+                            redditPosts.push({ 'status': post.data, 'image_url': 'https://www.reddit.com' + url });
+                        }
                         postedTweets.push(post.data.slice(0,5));
                     }
                 });
@@ -47,16 +52,10 @@ let listener = app.listen(process.env.PORT, function () {
     })).start();
 
     // tweet every 2 hours
-    (new CronJob('0 */2 * * *', function () {
+    (new CronJob('* * * * *', function () {
         if (redditPosts.length > 0) {
             const redditPost = redditPosts.pop();
-            let url = '';
-            if (redditPost.image_url.includes("http")) {
-                url = redditPost.image_url;
-            } else {
-                url = 'https://www.reddit.com' + redditPost.image_url;
-            }
-            const tweet = redditPost.status + ' #history #oldpictures ' + url;
+            const tweet = redditPost.status + ' ' + redditPost.image_url;
             T.post('statuses/update', { status: tweet }, function (err, data, response) {
                 if (err) {
                     console.log('Error at statuses/update', err);
