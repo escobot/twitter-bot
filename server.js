@@ -56,6 +56,13 @@ let listener = app.listen(process.env.PORT, function () {
         if (redditPosts.length > 0) {
             const redditPost = redditPosts.pop();
             const tweet = redditPost.status + ' ' + redditPost.image_url;
+            
+            // make sure tweet is less than 280 characters
+            if (tweet.length > 280) {
+                const toRemove = tweet.length - 280 + 5;
+                tweet = redditPost.status.substring(0,redditPost.status.length-toRemove) + '... ' + redditPost.image_url;
+            }
+
             T.post('statuses/update', { status: tweet }, function (err, data, response) {
                 if (err) {
                     console.log('Error at statuses/update', err);
