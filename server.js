@@ -55,7 +55,7 @@ let listener = app.listen(process.env.PORT, function () {
     (new CronJob('0 */2 * * *', function () {
         if (redditPosts.length > 0) {
             const redditPost = redditPosts.pop();
-            const tweet = redditPost.status + ' ' + redditPost.image_url;
+            let tweet = redditPost.status + ' ' + redditPost.image_url;
             
             // make sure tweet is less than 280 characters
             if (tweet.length > 280) {
