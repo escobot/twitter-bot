@@ -52,7 +52,7 @@ let listener = app.listen(process.env.PORT, function () {
     })).start();
 
     // tweet every 2 hours
-    (new CronJob('0 */2 * * *', function () {
+    (new CronJob('0 * * * *', function () {
         if (redditPosts.length > 0) {
             const redditPost = redditPosts.pop();
             let tweet = redditPost.status + ' ' + redditPost.image_url;
