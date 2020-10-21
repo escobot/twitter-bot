@@ -51,7 +51,7 @@ let listener = app.listen(process.env.PORT, function () {
         });
     })).start();
 
-    // tweet every 2 hours
+    // tweet every hour
     (new CronJob('0 * * * *', function () {
         if (redditPosts.length > 0) {
             const redditPost = redditPosts.pop();
