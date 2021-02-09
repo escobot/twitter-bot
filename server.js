@@ -17,7 +17,7 @@ const config = {
 
 let T = new Twit(config);
 
-let subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool'];
+let subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool', 'RetroFuturism', 'TrippinThroughTime'];
 let redditPosts = [];
 let postedTweets = [];
 
@@ -26,8 +26,8 @@ app.use(express.static('public'));
 let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
-    // fetch reddit posts every hour
-    (new CronJob('0 * * * *', function () {
+    // fetch reddit posts every fifteen minutes
+    (new CronJob('*/15 * * * *', function () {
         const randomSubreddit = Math.floor(Math.random() * Math.floor(subreddits.length));
         request('https://old.reddit.com/r/' + subreddits[randomSubreddit], function (err, res, body) {
             if (err) {
