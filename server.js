@@ -17,7 +17,7 @@ const config = {
 
 let T = new Twit(config);
 
-let subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool', 'RetroFuturism', 'TrippinThroughTime'];
+let subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool', 'RetroFuturism', 'TrippinThroughTime', 'Lost_Architecture'];
 let redditPosts = [];
 let postedTweets = [];
 
