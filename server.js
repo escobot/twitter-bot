@@ -54,7 +54,10 @@ let listener = app.listen(process.env.PORT, function () {
     // tweet every hour
     (new CronJob('0 * * * *', function () {
         if (redditPosts.length > 0) {
-            const redditPost = redditPosts.pop();
+            const random = Math.floor(Math.random() * redditPosts.length);
+            const redditPost = redditPosts[random];
+            redditPosts.splice(random, 1);
+            
             let tweet = redditPost.status + ' ' + redditPost.image_url;
             
             // make sure tweet is less than 280 characters
