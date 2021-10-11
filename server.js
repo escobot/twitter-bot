@@ -8,26 +8,29 @@ const cheerio = require('cheerio');
 const CronJob = require('cron').CronJob;
 const Twit = require('twit');
 
-const config = {
-    consumer_key: process.env.TWITTER_CONSUMER_KEY,
-    consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-    access_token: process.env.TWITTER_ACCESS_TOKEN,
-    access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-}
-
-let T = new Twit(config);
+app.use(express.static('public'));
 
 let subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool', 'RetroFuturism', 'TrippinThroughTime', 'Lost_Architecture'];
 let redditPosts = [];
 let postedTweets = [];
 
-app.use(express.static('public'));
 
 let listener = app.listen(process.env.PORT, function () {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
 
-    // fetch reddit posts every fifteen minutes
-    (new CronJob('*/15 * * * *', function () {
+    let twitterClient = new Twit({
+        consumer_key: process.env.TWITTER_CONSUMER_KEY,
+        consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+        access_token: process.env.TWITTER_ACCESS_TOKEN,
+        access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+    });
+
+    const EVERY_MINUTE = '* * * * *';
+    const EVERY_HOUR = '0 * * * *';
+    const EVERY_THREE_HOURS = '0 */3 * * *';
+
+    // fetch reddit posts
+    (new CronJob(EVERY_MINUTE, function () {
         const randomSubreddit = Math.floor(Math.random() * Math.floor(subreddits.length));
         request('https://old.reddit.com/r/' + subreddits[randomSubreddit], function (err, res, body) {
             if (err) {
@@ -51,8 +54,8 @@ let listener = app.listen(process.env.PORT, function () {
         });
     })).start();
 
-    // tweet every hour
-    (new CronJob('0 * * * *', function () {
+    // tweet
+    (new CronJob(EVERY_MINUTE, function () {
         if (redditPosts.length > 0) {
             const random = Math.floor(Math.random() * redditPosts.length);
             const redditPost = redditPosts[random];
@@ -66,7 +69,7 @@ let listener = app.listen(process.env.PORT, function () {
                 tweet = redditPost.status.substring(0,redditPost.status.length-toRemove) + '... ' + redditPost.image_url;
             }
 
-            T.post('statuses/update', { status: tweet }, function (err, data, response) {
+            twitterClient.post('statuses/update', { status: tweet }, function (err, data, response) {
                 if (err) {
                     console.log('Error at statuses/update', err);
                 }
