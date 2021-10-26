@@ -17,8 +17,44 @@ const subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'O
 const redditPosts = [];
 const postedTweets = new Set();
 
+const seedRedditPosts = () => {
+    const csvList = fs.readFileSync('tweets.csv')
+        .toString()
+        .split('\n')
+        .map(e => e.trim())
+        .map(e => e.split(',').map(e => e.trim())); // split each line to array
+
+    const headers = csvList[0];
+    const rows = csvList.slice(1);
+    rows.forEach((row) => {
+        let post = {};
+        headers.forEach((headers, i) => post[headers] = row[i]);
+        redditPosts.push(post);
+    });
+    
+    // replace $COMMA$ by an actual comma
+    redditPosts.forEach((post) => {
+        post.status = post.status.split("$COMMA$").join(",");
+    })
+};
+
+const seedPostedTweets = () => {
+    const csvList = fs.readFileSync('tweeted.csv')
+        .toString()
+        .split('\n')
+        .map(e => e.trim())
+        .map(e => e.split(',').map(e => e.trim())); // split each line to array
+
+    const headers = csvList[0];
+    const rows = csvList.slice(1);
+    
+    rows.map(hash => postedTweets.add(hash));
+};
+
 const listener = app.listen(process.env.PORT, function() {
     console.log('MyHistoryDosis is running on port ' + listener.address().port);
+    seedRedditPosts();
+    seedPostedTweets();
 
     const twitterClient = new Twit({
         consumer_key: process.env.TWITTER_CONSUMER_KEY,
@@ -145,8 +181,15 @@ const listener = app.listen(process.env.PORT, function() {
         postedTweets.forEach(function(hash) {
             backupPostedTweets.push({hash});
         });
+
+        // remove commas from the status for better csv parsing
+        const backupRedditPosts = redditPosts.map(post => {
+            post.status = post.status.split(",").join("$COMMA$");
+            return post;
+        });
+
         // backup arrays
-        new ObjectsToCsv(redditPosts).toDisk('./tweets.csv');
+        new ObjectsToCsv(backupRedditPosts).toDisk('./tweets.csv');
         new ObjectsToCsv(backupPostedTweets).toDisk('./tweeted.csv');
     })).start();
 });
