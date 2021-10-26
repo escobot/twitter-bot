@@ -33,9 +33,9 @@ const seedRedditPosts = () => {
     });
     
     // replace $COMMA$ by an actual comma
-    redditPosts.forEach((post) => {
-        post.status = post.status.split("$COMMA$").join(",");
-    })
+    for (let i = 0; i < redditPosts.length; i++) {
+        redditPosts[i].status = redditPosts[i].status.split("$COMMA$").join(",");
+    }
 };
 
 const seedPostedTweets = () => {
