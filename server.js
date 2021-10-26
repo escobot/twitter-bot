@@ -29,13 +29,9 @@ const seedRedditPosts = () => {
     rows.forEach((row) => {
         let post = {};
         headers.forEach((headers, i) => post[headers] = row[i]);
+        post.status = post.status.split("$COMMA$").join(",")
         redditPosts.push(post);
     });
-    
-    // replace $COMMA$ by an actual comma
-    for (let i = 0; i < redditPosts.length; i++) {
-        redditPosts[i].status = redditPosts[i].status.split("$COMMA$").join(",");
-    }
 };
 
 const seedPostedTweets = () => {
