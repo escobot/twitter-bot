@@ -91,20 +91,12 @@ const listener = app.listen(process.env.PORT, function() {
                 }, function(err, data, response) {
                     const mediaIdStr = data.media_id_string;
                     const altText = tweet;
-                    const meta_params = {
-                        media_id: mediaIdStr,
-                        alt_text: {
-                            text: altText
-                        }
-                    };
+                    const meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
 
                     twitterClient.post('media/metadata/create', meta_params, function(err, data, response) {
                         if (!err) {
                             // now we can reference the media and post a tweet (media will attach to the tweet)
-                            const params = {
-                                status: tweet,
-                                media_ids: [mediaIdStr]
-                            };
+                            const params = { status: tweet, media_ids: [mediaIdStr] };
                             twitterClient.post('statuses/update', params, function(err, data, response) {
                                 console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
                                 moveImageToTweetedDirectory(redditPost.hash);
