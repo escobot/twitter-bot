@@ -8,17 +8,19 @@ const request = require('request');
 const cheerio = require('cheerio');
 const CronJob = require('cron').CronJob;
 const Twit = require('twit');
-const { hash } = require('./hash');
+const {
+    hash
+} = require('./hash');
 
 app.use(express.static('public'));
 
 const BACKUP_FILE = process.env.BACKUP_FILE;
 const loadBackup = (path) => {
     try {
-      return fs.readFileSync(path, 'utf8')
+        return fs.readFileSync(path, 'utf8')
     } catch (err) {
-      console.error(err)
-      return false
+        console.error(err)
+        return false
     }
 }
 const subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool', 'RetroFuturism', 'TrippinThroughTime', 'Lost_Architecture'];
@@ -81,16 +83,28 @@ const listener = app.listen(process.env.PORT, function() {
             }
 
             if (redditPost.localImage) {
-                const b64content = fs.readFileSync(redditPost.localImage, { encoding: 'base64' });
-                twitterClient.post('media/upload', { media_data: b64content }, function(err, data, response) {
+                const b64content = fs.readFileSync(redditPost.localImage, {
+                    encoding: 'base64'
+                });
+                twitterClient.post('media/upload', {
+                    media_data: b64content
+                }, function(err, data, response) {
                     const mediaIdStr = data.media_id_string;
                     const altText = tweet;
-                    const meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
-    
+                    const meta_params = {
+                        media_id: mediaIdStr,
+                        alt_text: {
+                            text: altText
+                        }
+                    };
+
                     twitterClient.post('media/metadata/create', meta_params, function(err, data, response) {
                         if (!err) {
                             // now we can reference the media and post a tweet (media will attach to the tweet)
-                            const params = { status: tweet, media_ids: [mediaIdStr] };
+                            const params = {
+                                status: tweet,
+                                media_ids: [mediaIdStr]
+                            };
                             twitterClient.post('statuses/update', params, function(err, data, response) {
                                 console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
                                 moveImageToTweetedDirectory(redditPost.hash);
@@ -98,7 +112,7 @@ const listener = app.listen(process.env.PORT, function() {
                         }
                     });
                 });
-            } 
+            }
         } else {
             console.log('Reddit posts not fetched yet.');
         }
@@ -109,28 +123,28 @@ const IMG_DIR = process.env.IMG_DIR;
 const POSTED_IMG_DIR = process.env.POSTED_IMG_DIR;
 
 const fetchRedditImage = async (redditPost) => {
-    request(redditPost.imageUrl, (err, res, body) => {
-        if (err) {
-            console.log('Error at fetching reddit image: ', err);
-        } else {
-            // the reddit post could either be an image or a reddit page.
-            // if it's an image, download it directly
-            // else find the url of the image and then go to the url to download the image
-            if (redditPost.imageUrl.endsWith("jpg") || redditPost.imageUrl.endsWith(".png")) {
-                request.get(redditPost.imageUrl, (err, res, body) => {
-                    request(redditPost.imageUrl)
-                        .pipe(fs.createWriteStream(`${IMG_DIR}${redditPost.hash}.jpg`))
-                        .on('close', () => {
-                            redditPost.localImage = `${IMG_DIR}${redditPost.hash}.jpg`;
-                            redditPosts.push(redditPost);
-                            console.log(`Successfully fetched image for reddit post: ${redditPost.status}`);
-                        });
+    // the reddit post could either be an image or a reddit page.
+    // if it's an image, download it directly
+    // else find the url of the image and then go to the url to download the image
+    if (redditPost.imageUrl.endsWith("jpg") || redditPost.imageUrl.endsWith(".png")) {
+        request.get(redditPost.imageUrl, (err, res, body) => {
+            request(redditPost.imageUrl)
+                .pipe(fs.createWriteStream(`${IMG_DIR}${redditPost.hash}.jpg`))
+                .on('close', () => {
+                    redditPost.localImage = `${IMG_DIR}${redditPost.hash}.jpg`;
+                    redditPosts.push(redditPost);
+                    console.log(`Successfully fetched image for reddit post: ${redditPost.status}`);
                 });
+        });
+    } else {
+        request(redditPost.imageUrl, (err, res, body) => {
+            if (err) {
+                console.log('Error at fetching reddit image: ', err);
             } else {
                 let $ = cheerio.load(body);
                 $('a').each(function() {
                     let link = $(this).attr('href');
-    
+
                     // download reddit image locally
                     if (link && link.match(/(https:\/\/i.redd.it\/)(\w+)(.jpg|.png)/)) {
                         request.get(link, (err, res, body) => {
@@ -145,9 +159,9 @@ const fetchRedditImage = async (redditPost) => {
                     }
                 });
             }
-        }
-        storeBackup(redditPosts, BACKUP_FILE);
-    });
+            storeBackup(redditPosts, BACKUP_FILE);
+        });
+    }
 }
 
 const sanitizeRedditImageUrl = (imageUrl) => {
@@ -168,14 +182,14 @@ const getPostedTweetsSet = async () => {
             latestPostedTweets.add(file.split(".")[0]);
         });
     });
-    return latestPostedTweets;    
+    return latestPostedTweets;
 };
 
 const storeBackup = async (data, path) => {
     try {
-      fs.writeFileSync(path, JSON.stringify(data))
+        fs.writeFileSync(path, JSON.stringify(data))
     } catch (err) {
-      console.error(err)
+        console.error(err)
     }
 };
 
@@ -203,7 +217,7 @@ const move = async (oldPath, newPath, callback) => {
         readStream.on('error', callback);
         writeStream.on('error', callback);
 
-        readStream.on('close', function () {
+        readStream.on('close', function() {
             fs.unlink(oldPath, callback);
         });
 
