@@ -1,5 +1,3 @@
-'use strict';
-
 require('dotenv').config();
 const fs = require('fs');
 const express = require('express');
@@ -8,130 +6,134 @@ const request = require('request');
 const cheerio = require('cheerio');
 const CronJob = require('cron').CronJob;
 const Twit = require('twit');
-const {
-    hash
-} = require('./hash');
+const { hash } = require('./hash');
 
 app.use(express.static('public'));
 
-const BACKUP_FILE = process.env.BACKUP_FILE;
-const loadBackup = (path) => {
-    try {
-        return fs.readFileSync(path, 'utf8')
-    } catch (err) {
-        console.error(err)
-        return false
-    }
-}
-const subreddits = ['ColorizedHistory', 'OldPhotosInRealLife', 'HistoryPorn', 'OldSchoolCool', 'RetroFuturism', 'TrippinThroughTime', 'Lost_Architecture'];
-const redditPosts = JSON.parse(loadBackup(BACKUP_FILE));
-
-const twitterClient = new Twit({
-    consumer_key: process.env.TWITTER_CONSUMER_KEY,
-    consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-    access_token: process.env.TWITTER_ACCESS_TOKEN,
-    access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-});
-
-const listener = app.listen(process.env.PORT, function() {
-    console.log(`MyHistoryDosis is running on port ${listener.address().port}`);
-
-    // fetch reddit posts
-    (new CronJob('*/10 * * * *', async () => {
-        const postedTweets = await getPostedTweetsSet();
-
-        const randomSubreddit = Math.floor(Math.random() * Math.floor(subreddits.length));
-
-        // fetch a random subreddit page
-        request('https://old.reddit.com/r/' + subreddits[randomSubreddit], function(err, res, body) {
-            if (err) {
-                console.error(`Error at fetching subreddit: ${randomSubreddit} `, err);
-            } else {
-                let $ = cheerio.load(body);
-                // get all the posts' titles and links
-                $('p.title a.title').each(function() {
-                    const postTitle = $(this)[0].children[0];
-                    const postUrl = sanitizeRedditImageUrl($(this)[0].attribs.href);
-                    const postHash = hash(postTitle.data, 'crc32');
-
-                    // make sure the url is an image and that the post has not been fetched or tweeted yet.
-                    if (postUrl != "" && !redditPosts.some(e => e.hash === postHash) && !postedTweets.has(postHash)) {
-                        let postDraft = {
-                            'status': postTitle.data,
-                            'hash': postHash,
-                            'imageUrl': postUrl
-                        }
-                        fetchRedditImage(postDraft)
-                    }
-                });
-            }
-        });
-    })).start();
-
-    // tweet
-    (new CronJob('0 * * * *', function() {
-        if (redditPosts.length > 0) {
-            const randomNumber = Math.floor(Math.random() * redditPosts.length);
-            const redditPost = redditPosts[randomNumber];
-            redditPosts.splice(randomNumber, 1);
-
-            let tweet = redditPost.status;
-            // make sure tweet is less than 280 characters
-            if (tweet.length > 280) {
-                const textToRemove = tweet.length - 280 + 5;
-                tweet = redditPost.status.substring(0, redditPost.status.length - textToRemove) + '... ';
-            }
-
-            if (redditPost.localImage) {
-                const b64content = fs.readFileSync(redditPost.localImage, {
-                    encoding: 'base64'
-                });
-                twitterClient.post('media/upload', {
-                    media_data: b64content
-                }, function(err, data, response) {
-                    const mediaIdStr = data.media_id_string;
-                    const altText = tweet;
-                    const meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
-
-                    twitterClient.post('media/metadata/create', meta_params, function(err, data, response) {
-                        if (!err) {
-                            // now we can reference the media and post a tweet (media will attach to the tweet)
-                            const params = { status: tweet, media_ids: [mediaIdStr] };
-                            twitterClient.post('statuses/update', params, function(err, data, response) {
-                                console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
-                                moveImageToTweetedDirectory(redditPost.hash);
-                            });
-                        }
-                    });
-                });
-            }
-        } else {
-            console.log('Reddit posts not fetched yet.');
+const getTwitterClients = (NUMBER_OF_CLIENTS) => {
+    const loadBackup = (path) => {
+        try {
+            return fs.readFileSync(path, 'utf8')
+        } catch (err) {
+            console.error(err)
+            return false
         }
-    })).start();
-});
+    };
+    const twitterClients = [];
+    for(let i = 1; i <= NUMBER_OF_CLIENTS; i++) {
+        const backupFile = process.env['BACKUP_FILE_' + i];
+        const imageDirectory = process.env['IMG_DIR_' + i];
+        const isBackedUp = loadBackup(backupFile);
+        const redditPosts = isBackedUp ? JSON.parse(loadBackup(backupFile)) : [];
+        const subreddits = JSON.parse(process.env['SUBREDDITS_' + i]);
+        const twitterClient = new Twit({
+            consumer_key: process.env['TWITTER_CONSUMER_KEY_' + i],
+            consumer_secret: process.env['TWITTER_CONSUMER_SECRET_' + i],
+            access_token: process.env['TWITTER_ACCESS_TOKEN_' + i],
+            access_token_secret: process.env['TWITTER_ACCESS_TOKEN_SECRET_' + i]
+        });
+        twitterClients.push({ imageDirectory, backupFile, redditPosts, subreddits, twitterClient });
+    }
+    return twitterClients;
+};
 
-const IMG_DIR = process.env.IMG_DIR;
 const POSTED_IMG_DIR = process.env.POSTED_IMG_DIR;
 
-const fetchRedditImage = async (redditPost) => {
-    // the reddit post could either be an image or a reddit page.
-    // if it's an image, download it directly
-    // else find the url of the image and then go to the url to download the image
+const NUMBER_OF_CLIENTS = 2;
+const twitterClients = getTwitterClients(NUMBER_OF_CLIENTS);
+
+const fetchRedditPosts = async (subRedditIndex) => {
+    const postedTweets = await getPostedTweetsSet();
+    const randomSubreddit = Math.floor(Math.random() * Math.floor(twitterClients[subRedditIndex].subreddits.length));
+
+    // fetch a random subreddit page
+    request('https://old.reddit.com/r/' + twitterClients[subRedditIndex].subreddits[randomSubreddit], function(err, res, body) {
+        if (err) {
+            console.error(`Error at fetching subreddit: ${randomSubreddit} `, err);
+        } else {
+            let $ = cheerio.load(body);
+            // get all the posts' titles and links
+            $('p.title a.title').each(function() {
+                const postTitle = $(this)[0].children[0];
+                const postUrl = sanitizeRedditImageUrl($(this)[0].attribs.href);
+                const postHash = hash(postTitle.data, 'crc32');
+
+                // make sure the url is an image and that the post has not been fetched or tweeted yet.
+                if (postUrl != "" && !twitterClients[subRedditIndex].redditPosts.some(e => e.hash === postHash) && !postedTweets.has(postHash)) {
+                    let postDraft = {
+                        'status': postTitle.data,
+                        'hash': postHash,
+                        'imageUrl': postUrl
+                    }
+                    fetchRedditImage(subRedditIndex,postDraft)
+                }
+            });
+        }
+    });
+};
+
+const tweet = async (subRedditIndex) => {
+    if (twitterClients[subRedditIndex].redditPosts.length > 0) {
+        const randomNumber = Math.floor(Math.random() * twitterClients[subRedditIndex].redditPosts.length);
+        const redditPost = twitterClients[subRedditIndex].redditPosts[randomNumber];
+        twitterClients[subRedditIndex].redditPosts.splice(randomNumber, 1);
+
+        let tweet = redditPost.status;
+        // make sure tweet is less than 280 characters
+        if (tweet.length > 280) {
+            const textToRemove = tweet.length - 280 + 5;
+            tweet = redditPost.status.substring(0, redditPost.status.length - textToRemove) + '... ';
+        }
+
+        if (redditPost.localImage) {
+            const b64content = fs.readFileSync(redditPost.localImage, {
+                encoding: 'base64'
+            });
+            twitterClients[subRedditIndex].twitterClient.post('media/upload', {
+                media_data: b64content
+            }, function(err, data, response) {
+                const mediaIdStr = data.media_id_string;
+                const altText = tweet;
+                const meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
+
+                twitterClients[subRedditIndex].twitterClient.post('media/metadata/create', meta_params, function(err, data, response) {
+                    if (!err) {
+                        // now we can reference the media and post a tweet (media will attach to the tweet)
+                        const params = { status: tweet, media_ids: [mediaIdStr] };
+                        twitterClients[subRedditIndex].twitterClient.post('statuses/update', params, function(err, data, response) {
+                            console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
+                            moveImageToTweetedDirectory(subRedditIndex, redditPost.hash);
+                        });
+                    }
+                });
+            });
+        }
+    } else {
+        console.log('Reddit posts not fetched yet.');
+    }
+};
+
+const fetchRedditImage = async (subRedditIndex, redditPost) => {
     if (redditPost.imageUrl.endsWith("jpg") || redditPost.imageUrl.endsWith(".png")) {
         request.get(redditPost.imageUrl, (err, res, body) => {
+            if (err) {
+                console.error(`Error at downloading image: ${redditPost.status} `, err);
+                removeTweetFromList(redditPost.hash);
+            } else {
             request(redditPost.imageUrl)
-                .pipe(fs.createWriteStream(`${IMG_DIR}${redditPost.hash}.jpg`))
+                .pipe(fs.createWriteStream(`${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`))
                 .on('close', () => {
-                    redditPost.localImage = `${IMG_DIR}${redditPost.hash}.jpg`;
-                    redditPosts.push(redditPost);
+                    redditPost.localImage = `${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`;
+                    twitterClients[subRedditIndex].redditPosts.push(redditPost);
                     console.log(`Successfully fetched image for reddit post: ${redditPost.status}`);
                 });
+            }
         });
     } else {
         request(redditPost.imageUrl, (err, res, body) => {
             if (err) {
-                console.log('Error at fetching reddit image: ', err);
+                console.error(`Error at downloading image: ${redditPost.status} `, err);
+                removeTweetFromList(redditPost.hash);
             } else {
                 let $ = cheerio.load(body);
                 $('a').each(function() {
@@ -141,20 +143,31 @@ const fetchRedditImage = async (redditPost) => {
                     if (link && link.match(/(https:\/\/i.redd.it\/)(\w+)(.jpg|.png)/)) {
                         request.get(link, (err, res, body) => {
                             request(link)
-                                .pipe(fs.createWriteStream(`${IMG_DIR}${redditPost.hash}.jpg`))
+                                .pipe(fs.createWriteStream(`${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`))
                                 .on('close', () => {
-                                    redditPost.localImage = `${IMG_DIR}${redditPost.hash}.jpg`;
-                                    redditPosts.push(redditPost);
+                                    redditPost.localImage = `${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`;
+                                    twitterClients[subRedditIndex].redditPosts.push(redditPost);
                                     console.log(`Successfully fetched image for reddit post: ${redditPost.status}`);
                                 });
                         });
                     }
                 });
             }
-            storeBackup(redditPosts, BACKUP_FILE);
+            storeBackup(twitterClients[subRedditIndex].redditPosts, twitterClients[subRedditIndex].backupFile);
         });
     }
 }
+
+const removeTweetFromList = (tweetHash) => {
+    for(let j = 0; j < NUMBER_OF_CLIENTS; j++) {
+        for(var i = 0; i < twitterClients[j].redditPosts.length; i++) {
+            if(twitterClients[j].redditPosts[i].hash == tweetHash) {
+                redditPosts.splice(i, 1);
+                break;
+            }
+        }
+    }
+};
 
 const sanitizeRedditImageUrl = (imageUrl) => {
     if (imageUrl.endsWith(".jpg") || imageUrl.endsWith(".png"))
@@ -185,34 +198,52 @@ const storeBackup = async (data, path) => {
     }
 };
 
-const moveImageToTweetedDirectory = async (postHash) => {
-    move(`${IMG_DIR}${postHash}.jpg`, `${POSTED_IMG_DIR}${postHash}.jpg`, (cb) => {})
-};
-
-const move = async (oldPath, newPath, callback) => {
-    fs.rename(oldPath, newPath, (err) => {
-        if (err) {
-            if (err.code === 'EXDEV') {
-                copy();
-            } else {
-                callback(err);
+const moveImageToTweetedDirectory = async (subRedditIndex, postHash) => {
+    const move = async (oldPath, newPath, callback) => {
+        fs.rename(oldPath, newPath, (err) => {
+            if (err) {
+                if (err.code === 'EXDEV') {
+                    copy();
+                } else {
+                    callback(err);
+                }
+                return;
             }
-            return;
-        }
-        callback();
-    });
-
-    const copy = () => {
-        const readStream = fs.createReadStream(oldPath);
-        const writeStream = fs.createWriteStream(newPath);
-
-        readStream.on('error', callback);
-        writeStream.on('error', callback);
-
-        readStream.on('close', function() {
-            fs.unlink(oldPath, callback);
+            callback();
         });
-
-        readStream.pipe(writeStream);
+    
+        const copy = () => {
+            const readStream = fs.createReadStream(oldPath);
+            const writeStream = fs.createWriteStream(newPath);
+    
+            readStream.on('error', callback);
+            writeStream.on('error', callback);
+    
+            readStream.on('close', function() {
+                fs.unlink(oldPath, callback);
+            });
+    
+            readStream.pipe(writeStream);
+        };
     };
+    
+    move(`${twitterClients[subRedditIndex].imageDirectory}${postHash}.jpg`, `${POSTED_IMG_DIR}${postHash}.jpg`, (cb) => {})
 };
+
+const listener = app.listen(process.env.PORT, function() {
+    console.log(`Twitter bot is running on port ${listener.address().port}`);
+
+    // fetch reddit posts
+    (new CronJob('*/50 * * * *', () => {
+        for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
+            fetchRedditPosts(i);
+        }
+    })).start();
+
+    // tweet
+    (new CronJob('0 * * * *', () => {
+        for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
+            tweet(i);
+        }
+    })).start();
+});
