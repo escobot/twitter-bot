@@ -1,11 +1,3 @@
-# my-history-dosis
-
-MyHistoryDosis  
-[@DosisMy](https://twitter.com/DosisMy)  
-Exploring the past through historical photographs.
-
-New tweet every hour!
-
 ## Dev
 
 Requirements:
