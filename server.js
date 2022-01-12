@@ -39,7 +39,7 @@ const getTwitterClients = (NUMBER_OF_CLIENTS) => {
 
 const POSTED_IMG_DIR = process.env.POSTED_IMG_DIR;
 
-const NUMBER_OF_CLIENTS = 2;
+const NUMBER_OF_CLIENTS = 3;
 const twitterClients = getTwitterClients(NUMBER_OF_CLIENTS);
 
 const fetchRedditPosts = async (subRedditIndex) => {
@@ -101,8 +101,12 @@ const tweet = async (subRedditIndex) => {
                         // now we can reference the media and post a tweet (media will attach to the tweet)
                         const params = { status: tweet, media_ids: [mediaIdStr] };
                         twitterClients[subRedditIndex].twitterClient.post('statuses/update', params, function(err, data, response) {
-                            console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
-                            moveImageToTweetedDirectory(subRedditIndex, redditPost.hash);
+                            if (err) {
+                                console.error(`Error at tweeting for subReddit: ${subRedditIndex} `, err);
+                            } else {
+                                console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
+                                moveImageToTweetedDirectory(subRedditIndex, redditPost.hash);
+                            }
                         });
                     }
                 });
