@@ -22,9 +22,8 @@ const getTwitterClients = (NUMBER_OF_CLIENTS) => {
     const twitterClients = [];
     for(let i = 1; i <= NUMBER_OF_CLIENTS; i++) {
         const backupFile = process.env['BACKUP_FILE_' + i];
-        const imageDirectory = process.env['IMG_DIR_' + i];
         const isBackedUp = loadBackup(backupFile);
-        const redditPosts = isBackedUp ? JSON.parse(loadBackup(backupFile)) : [];
+        const imageDirectory = process.env['IMG_DIR_' + i];
         const subreddits = JSON.parse(process.env['SUBREDDITS_' + i]);
         const twitterClient = new Twit({
             consumer_key: process.env['TWITTER_CONSUMER_KEY_' + i],
@@ -32,6 +31,7 @@ const getTwitterClients = (NUMBER_OF_CLIENTS) => {
             access_token: process.env['TWITTER_ACCESS_TOKEN_' + i],
             access_token_secret: process.env['TWITTER_ACCESS_TOKEN_SECRET_' + i]
         });
+        const redditPosts = isBackedUp ? JSON.parse(loadBackup(backupFile)) : [];
         twitterClients.push({ imageDirectory, backupFile, redditPosts, subreddits, twitterClient });
     }
     return twitterClients;
@@ -39,7 +39,7 @@ const getTwitterClients = (NUMBER_OF_CLIENTS) => {
 
 const POSTED_IMG_DIR = process.env.POSTED_IMG_DIR;
 
-const NUMBER_OF_CLIENTS = 3;
+const NUMBER_OF_CLIENTS = 9;
 const twitterClients = getTwitterClients(NUMBER_OF_CLIENTS);
 
 const fetchRedditPosts = async (subRedditIndex) => {
@@ -52,20 +52,20 @@ const fetchRedditPosts = async (subRedditIndex) => {
             console.error(`Error at fetching subreddit: ${randomSubreddit} `, err);
         } else {
             let $ = cheerio.load(body);
-            // get all the posts' titles and links
-            $('p.title a.title').each(function() {
-                const postTitle = $(this)[0].children[0];
-                const postUrl = sanitizeRedditImageUrl($(this)[0].attribs.href);
-                const postHash = hash(postTitle.data, 'crc32');
+            $('div.top-matter').each(function() {
+                const postTitle = $(this).find('p.title a.title').text();
+                const postUrl = sanitizeRedditImageUrl($(this).find('p.title a.title').attr('href'));
+                const postAuthor = $(this).find('p.tagline a.author').text();
+                const postHash = hash(postTitle, 'crc32');
 
-                // make sure the url is an image and that the post has not been fetched or tweeted yet.
                 if (postUrl != "" && !twitterClients[subRedditIndex].redditPosts.some(e => e.hash === postHash) && !postedTweets.has(postHash)) {
                     let postDraft = {
-                        'status': postTitle.data,
+                        'status': postTitle,
                         'hash': postHash,
-                        'imageUrl': postUrl
+                        'imageUrl': postUrl,
+                        'author': postAuthor
                     }
-                    fetchRedditImage(subRedditIndex,postDraft)
+                    fetchRedditImage(subRedditIndex, postDraft);
                 }
             });
         }
@@ -78,7 +78,8 @@ const tweet = async (subRedditIndex) => {
         const redditPost = twitterClients[subRedditIndex].redditPosts[randomNumber];
         twitterClients[subRedditIndex].redditPosts.splice(randomNumber, 1);
 
-        let tweet = redditPost.status;
+        const credits = redditPost.author ? ' by ' + redditPost.author : '';
+        let tweet = `${redditPost.status}${credits}`;
         // make sure tweet is less than 280 characters
         if (tweet.length > 280) {
             const textToRemove = tweet.length - 280 + 5;
@@ -157,9 +158,9 @@ const fetchRedditImage = async (subRedditIndex, redditPost) => {
                     }
                 });
             }
-            storeBackup(twitterClients[subRedditIndex].redditPosts, twitterClients[subRedditIndex].backupFile);
         });
     }
+    storeBackup(twitterClients[subRedditIndex].redditPosts, twitterClients[subRedditIndex].backupFile);
 }
 
 const removeTweetFromList = (tweetHash) => {
@@ -238,7 +239,7 @@ const listener = app.listen(process.env.PORT, function() {
     console.log(`Twitter bot is running on port ${listener.address().port}`);
 
     // fetch reddit posts
-    (new CronJob('*/50 * * * *', () => {
+    (new CronJob('0 */2 * * *', () => {
         for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
             fetchRedditPosts(i);
         }
@@ -246,7 +247,7 @@ const listener = app.listen(process.env.PORT, function() {
 
     // tweet
     (new CronJob('0 * * * *', () => {
-        for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
+        for(let i = 0; i < 2; i++) {
             tweet(i);
         }
     })).start();
