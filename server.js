@@ -44,7 +44,7 @@ const twitterClients = getTwitterClients(NUMBER_OF_CLIENTS);
 
 const fetchRedditPosts = async (subRedditIndex) => {
     const postedTweets = await getPostedTweetsSet();
-    const randomSubreddit = Math.floor(Math.random() * Math.floor(twitterClients[subRedditIndex].subreddits.length));
+    const randomSubreddit = SUBREDDIT_RR % twitterClients[subRedditIndex].subreddits.length;
 
     // fetch a random subreddit page
     request('https://old.reddit.com/r/' + twitterClients[subRedditIndex].subreddits[randomSubreddit], function(err, res, body) {
@@ -78,7 +78,7 @@ const tweet = async (subRedditIndex) => {
         const redditPost = twitterClients[subRedditIndex].redditPosts[randomNumber];
         twitterClients[subRedditIndex].redditPosts.splice(randomNumber, 1);
 
-        const credits = redditPost.author ? ' by ' + redditPost.author : '';
+        const credits = redditPost.author ? `(${redditPost.author})` : '';
         let tweet = `${redditPost.status}${credits}`;
         // make sure tweet is less than 280 characters
         if (tweet.length > 280) {
@@ -237,16 +237,18 @@ const moveImageToTweetedDirectory = async (subRedditIndex, postHash) => {
 
 const listener = app.listen(process.env.PORT, function() {
     console.log(`Twitter bot is running on port ${listener.address().port}`);
-
+    
+    let SUBREDDIT_RR = -1;
     // fetch reddit posts
     (new CronJob('0 */2 * * *', () => {
         for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
+            SUBREDDIT_RR++;
             fetchRedditPosts(i);
         }
     })).start();
 
     // tweet
-    (new CronJob('0 * * * *', () => {
+    (new CronJob('0 */2 * * *', () => {
         for(let i = 0; i < 2; i++) {
             tweet(i);
         }
