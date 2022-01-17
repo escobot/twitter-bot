@@ -41,6 +41,7 @@ const POSTED_IMG_DIR = process.env.POSTED_IMG_DIR;
 
 const NUMBER_OF_CLIENTS = 9;
 const twitterClients = getTwitterClients(NUMBER_OF_CLIENTS);
+let SUBREDDIT_RR = -1;
 
 const fetchRedditPosts = async (subRedditIndex) => {
     const postedTweets = await getPostedTweetsSet();
@@ -238,7 +239,6 @@ const moveImageToTweetedDirectory = async (subRedditIndex, postHash) => {
 const listener = app.listen(process.env.PORT, function() {
     console.log(`Twitter bot is running on port ${listener.address().port}`);
     
-    let SUBREDDIT_RR = -1;
     // fetch reddit posts
     (new CronJob('0 */2 * * *', () => {
         for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
