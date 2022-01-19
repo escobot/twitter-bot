@@ -121,12 +121,12 @@ const tweet = async (subRedditIndex) => {
 
 const fetchRedditImage = async (subRedditIndex, redditPost) => {
     if (redditPost.imageUrl.endsWith("jpg") || redditPost.imageUrl.endsWith(".png")) {
-        request.get(redditPost.imageUrl, (err, res, body) => {
+        request.get(decodeURI(redditPost.imageUrl), (err, res, body) => {
             if (err) {
-                console.error(`Error at downloading image: ${redditPost.status} `, err);
+                console.error(`Error at downloading image (if): ${redditPost.status} `, err);
                 removeTweetFromList(redditPost.hash);
             } else {
-            request(redditPost.imageUrl)
+            request(decodeURI(redditPost.imageUrl))
                 .pipe(fs.createWriteStream(`${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`))
                 .on('close', () => {
                     redditPost.localImage = `${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`;
@@ -136,9 +136,9 @@ const fetchRedditImage = async (subRedditIndex, redditPost) => {
             }
         });
     } else {
-        request(redditPost.imageUrl, (err, res, body) => {
+        request(decodeURI(redditPost.imageUrl), (err, res, body) => {
             if (err) {
-                console.error(`Error at downloading image: ${redditPost.status} `, err);
+                console.error(`Error at downloading image (else): ${redditPost.status} `, err);
                 removeTweetFromList(redditPost.hash);
             } else {
                 let $ = cheerio.load(body);
@@ -232,15 +232,14 @@ const moveImageToTweetedDirectory = async (subRedditIndex, postHash) => {
             readStream.pipe(writeStream);
         };
     };
-    
     move(`${twitterClients[subRedditIndex].imageDirectory}${postHash}.jpg`, `${POSTED_IMG_DIR}${postHash}.jpg`, (cb) => {})
 };
 
 const listener = app.listen(process.env.PORT, function() {
     console.log(`Twitter bot is running on port ${listener.address().port}`);
-    
+
     // fetch reddit posts
-    (new CronJob('0 */2 * * *', () => {
+    (new CronJob('0 * * * *', () => {
         for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
             SUBREDDIT_RR++;
             fetchRedditPosts(i);
