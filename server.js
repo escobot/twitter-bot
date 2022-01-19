@@ -121,12 +121,12 @@ const tweet = async (subRedditIndex) => {
 
 const fetchRedditImage = async (subRedditIndex, redditPost) => {
     if (redditPost.imageUrl.endsWith("jpg") || redditPost.imageUrl.endsWith(".png")) {
-        request.get(decodeURI(redditPost.imageUrl), (err, res, body) => {
+        request.get(encodeURI(redditPost.imageUrl), (err, res, body) => {
             if (err) {
                 console.error(`Error at downloading image (if): ${redditPost.status} `, err);
                 removeTweetFromList(redditPost.hash);
             } else {
-            request(decodeURI(redditPost.imageUrl))
+            request(encodeURI(redditPost.imageUrl))
                 .pipe(fs.createWriteStream(`${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`))
                 .on('close', () => {
                     redditPost.localImage = `${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`;
@@ -136,7 +136,7 @@ const fetchRedditImage = async (subRedditIndex, redditPost) => {
             }
         });
     } else {
-        request(decodeURI(redditPost.imageUrl), (err, res, body) => {
+        request(encodeURI(redditPost.imageUrl), (err, res, body) => {
             if (err) {
                 console.error(`Error at downloading image (else): ${redditPost.status} `, err);
                 removeTweetFromList(redditPost.hash);
