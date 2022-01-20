@@ -43,12 +43,12 @@ const NUMBER_OF_CLIENTS = 9;
 const twitterClients = getTwitterClients(NUMBER_OF_CLIENTS);
 let SUBREDDIT_RR = -1;
 
-const fetchRedditPosts = async (subRedditIndex) => {
+const fetchRedditPosts = async (twitterClientIndex) => {
     const postedTweets = await getPostedTweetsSet();
-    const randomSubreddit = SUBREDDIT_RR % twitterClients[subRedditIndex].subreddits.length;
+    const randomSubreddit = SUBREDDIT_RR % twitterClients[twitterClientIndex].subreddits.length;
 
     // fetch a random subreddit page
-    request('https://old.reddit.com/r/' + twitterClients[subRedditIndex].subreddits[randomSubreddit], function(err, res, body) {
+    request('https://old.reddit.com/r/' + twitterClients[twitterClientIndex].subreddits[randomSubreddit], function(err, res, body) {
         if (err) {
             console.error(`Error at fetching subreddit: ${randomSubreddit} `, err);
         } else {
@@ -59,28 +59,31 @@ const fetchRedditPosts = async (subRedditIndex) => {
                 const postAuthor = $(this).find('p.tagline a.author').text();
                 const postHash = hash(postTitle, 'crc32');
 
-                if (postUrl != "" && !twitterClients[subRedditIndex].redditPosts.some(e => e.hash === postHash) && !postedTweets.has(postHash)) {
+                if (postUrl != "" && !twitterClients[twitterClientIndex].redditPosts.some(e => e.hash === postHash) && !postedTweets.has(postHash)) {
                     let postDraft = {
                         'status': postTitle,
                         'hash': postHash,
                         'imageUrl': postUrl,
-                        'author': postAuthor
+                        'author': postAuthor,
+                        'subReddit': twitterClients[twitterClientIndex].subreddits[randomSubreddit]
                     }
-                    fetchRedditImage(subRedditIndex, postDraft);
+                    fetchRedditImage(twitterClientIndex, postDraft);
                 }
             });
         }
     });
 };
 
-const tweet = async (subRedditIndex) => {
-    if (twitterClients[subRedditIndex].redditPosts.length > 0) {
-        const randomNumber = Math.floor(Math.random() * twitterClients[subRedditIndex].redditPosts.length);
-        const redditPost = twitterClients[subRedditIndex].redditPosts[randomNumber];
-        twitterClients[subRedditIndex].redditPosts.splice(randomNumber, 1);
+const tweet = async (twitterClientIndex) => {
+    if (twitterClients[twitterClientIndex].redditPosts.length > 0) {
+        const randomNumber = Math.floor(Math.random() * twitterClients[twitterClientIndex].redditPosts.length);
+        const redditPost = twitterClients[twitterClientIndex].redditPosts[randomNumber];
+        twitterClients[twitterClientIndex].redditPosts.splice(randomNumber, 1);
 
-        const credits = redditPost.author ? `(${redditPost.author})` : '';
-        let tweet = `${redditPost.status}${credits}`;
+        const credits = redditPost.author ? ` (${redditPost.author})` : '';
+        const subRedditName = redditPost.subReddit ? ` #${redditPost.subReddit}` : '';
+
+        let tweet = `${redditPost.status}${credits}${subRedditName}`;
         // make sure tweet is less than 280 characters
         if (tweet.length > 280) {
             const textToRemove = tweet.length - 280 + 5;
@@ -91,23 +94,23 @@ const tweet = async (subRedditIndex) => {
             const b64content = fs.readFileSync(redditPost.localImage, {
                 encoding: 'base64'
             });
-            twitterClients[subRedditIndex].twitterClient.post('media/upload', {
+            twitterClients[twitterClientIndex].twitterClient.post('media/upload', {
                 media_data: b64content
             }, function(err, data, response) {
                 const mediaIdStr = data.media_id_string;
                 const altText = tweet;
                 const meta_params = { media_id: mediaIdStr, alt_text: { text: altText } };
 
-                twitterClients[subRedditIndex].twitterClient.post('media/metadata/create', meta_params, function(err, data, response) {
+                twitterClients[twitterClientIndex].twitterClient.post('media/metadata/create', meta_params, function(err, data, response) {
                     if (!err) {
                         // now we can reference the media and post a tweet (media will attach to the tweet)
                         const params = { status: tweet, media_ids: [mediaIdStr] };
-                        twitterClients[subRedditIndex].twitterClient.post('statuses/update', params, function(err, data, response) {
+                        twitterClients[twitterClientIndex].twitterClient.post('statuses/update', params, function(err, data, response) {
                             if (err) {
-                                console.error(`Error at tweeting for subReddit: ${subRedditIndex} `, err);
+                                console.error(`Error at tweeting for subReddit: ${twitterClientIndex} `, err);
                             } else {
                                 console.log('Tweeted', `https://twitter.com/${data.user.screen_name}/status/${data.id_str}`);
-                                moveImageToTweetedDirectory(subRedditIndex, redditPost.hash);
+                                moveImageToTweetedDirectory(twitterClientIndex, redditPost.hash);
                             }
                         });
                     }
@@ -119,7 +122,7 @@ const tweet = async (subRedditIndex) => {
     }
 };
 
-const fetchRedditImage = async (subRedditIndex, redditPost) => {
+const fetchRedditImage = async (twitterClientIndex, redditPost) => {
     if (redditPost.imageUrl.endsWith("jpg") || redditPost.imageUrl.endsWith(".png")) {
         request.get(encodeURI(redditPost.imageUrl), (err, res, body) => {
             if (err) {
@@ -127,10 +130,10 @@ const fetchRedditImage = async (subRedditIndex, redditPost) => {
                 removeTweetFromList(redditPost.hash);
             } else {
             request(encodeURI(redditPost.imageUrl))
-                .pipe(fs.createWriteStream(`${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`))
+                .pipe(fs.createWriteStream(`${twitterClients[twitterClientIndex].imageDirectory}${redditPost.hash}.jpg`))
                 .on('close', () => {
-                    redditPost.localImage = `${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`;
-                    twitterClients[subRedditIndex].redditPosts.push(redditPost);
+                    redditPost.localImage = `${twitterClients[twitterClientIndex].imageDirectory}${redditPost.hash}.jpg`;
+                    twitterClients[twitterClientIndex].redditPosts.push(redditPost);
                     console.log(`Successfully fetched image for reddit post: ${redditPost.status}`);
                 });
             }
@@ -149,10 +152,10 @@ const fetchRedditImage = async (subRedditIndex, redditPost) => {
                     if (link && link.match(/(https:\/\/i.redd.it\/)(\w+)(.jpg|.png)/)) {
                         request.get(link, (err, res, body) => {
                             request(link)
-                                .pipe(fs.createWriteStream(`${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`))
+                                .pipe(fs.createWriteStream(`${twitterClients[twitterClientIndex].imageDirectory}${redditPost.hash}.jpg`))
                                 .on('close', () => {
-                                    redditPost.localImage = `${twitterClients[subRedditIndex].imageDirectory}${redditPost.hash}.jpg`;
-                                    twitterClients[subRedditIndex].redditPosts.push(redditPost);
+                                    redditPost.localImage = `${twitterClients[twitterClientIndex].imageDirectory}${redditPost.hash}.jpg`;
+                                    twitterClients[twitterClientIndex].redditPosts.push(redditPost);
                                     console.log(`Successfully fetched image for reddit post: ${redditPost.status}`);
                                 });
                         });
@@ -161,7 +164,7 @@ const fetchRedditImage = async (subRedditIndex, redditPost) => {
             }
         });
     }
-    storeBackup(twitterClients[subRedditIndex].redditPosts, twitterClients[subRedditIndex].backupFile);
+    storeBackup(twitterClients[twitterClientIndex].redditPosts, twitterClients[twitterClientIndex].backupFile);
 }
 
 const removeTweetFromList = (tweetHash) => {
@@ -204,7 +207,7 @@ const storeBackup = async (data, path) => {
     }
 };
 
-const moveImageToTweetedDirectory = async (subRedditIndex, postHash) => {
+const moveImageToTweetedDirectory = async (twitterClientIndex, postHash) => {
     const move = async (oldPath, newPath, callback) => {
         fs.rename(oldPath, newPath, (err) => {
             if (err) {
@@ -232,7 +235,7 @@ const moveImageToTweetedDirectory = async (subRedditIndex, postHash) => {
             readStream.pipe(writeStream);
         };
     };
-    move(`${twitterClients[subRedditIndex].imageDirectory}${postHash}.jpg`, `${POSTED_IMG_DIR}${postHash}.jpg`, (cb) => {})
+    move(`${twitterClients[twitterClientIndex].imageDirectory}${postHash}.jpg`, `${POSTED_IMG_DIR}${postHash}.jpg`, (cb) => {})
 };
 
 const listener = app.listen(process.env.PORT, function() {
