@@ -112,9 +112,10 @@ const tweet = async (twitterClientIndex) => {
 
     if (redditPost) {
         const credits = redditPost.author != 'N/A' ? ` (${redditPost.author})` : '';
-        const subRedditName = redditPost.subReddit ? ` #${redditPost.subReddit}` : '';
+        // const subRedditName = redditPost.subReddit ? ` #${redditPost.subReddit}` : '';
 
-        let tweet = `${redditPost.status}${credits}${subRedditName}`;
+        // let tweet = `${redditPost.status}${credits}${subRedditName}`;
+        let tweet = `${redditPost.status}${credits}`;
         // make sure tweet is less than 280 characters
         if (tweet.length > 280) {
             const textToRemove = tweet.length - 280 + 5;
@@ -210,7 +211,7 @@ const saveRedditPosts = async (postsQueue) => {
                 redditPosts[i].hash, 
                 redditPosts[i].imageUrl, 
                 redditPosts[i].localImage, 
-                redditPosts[i].isTweeted, 
+                0, 
                 redditPosts[i].subReddit, 
                 redditPosts[i].author
             );
@@ -230,7 +231,9 @@ const listener = app.listen(process.env.PORT, function() {
         for(let i = 0; i < NUMBER_OF_CLIENTS; i++) {
             fetchRedditPosts(i, postsQueue);
         }
-        saveRedditPosts(postsQueue);
+        setTimeout(() => {
+            saveRedditPosts(postsQueue);
+        }, 3*60*1000);
     })).start();
 
     // tweet
