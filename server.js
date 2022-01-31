@@ -198,27 +198,36 @@ const markRedditPostAsTweeted = (hash) => {
 const saveRedditPosts = async (postsQueue) => {
     const hashes = await getRedditPostHashes();
     const setHashes = new Set(hashes.map(x => x.hash));
-    const redditPosts = [...new Set(postsQueue.filter(x => !setHashes.has(x.hash)))];
+    const redditPosts = [... new Set(postsQueue.filter(x => !setHashes.has(x.hash)))];
 
-    db.run('CREATE TABLE IF NOT EXISTS posts ( clientId INT NOT NULL, status TEXT NOT NULL, hash CHAR(8) PRIMARY KEY NOT NULL, imageUrl TEXT NOT NULL, localImage TEXT NOT NULL, isTweeted INT NOT NULL, subReddit CHAR(20) NOT NULL, author CHAR(20) NOT NULL);')
-
-    db.serialize(function() {
-        db.run("begin transaction");
-        for (var i = 0; i < redditPosts.length; i++) {
-                db.run("insert into posts (clientId, status, hash, imageUrl, localImage, isTweeted, subReddit, author) values (?, ?, ?, ?, ?, ?, ?, ?)", 
-                redditPosts[i].clientId, 
-                redditPosts[i].status, 
-                redditPosts[i].hash, 
-                redditPosts[i].imageUrl, 
-                redditPosts[i].localImage, 
-                0, 
-                redditPosts[i].subReddit, 
-                redditPosts[i].author
-            );
-        }
-        db.run("commit");
+    let seen = new Set();
+    const hasDuplicates = redditPosts.some((currentObject) => {
+        return seen.size === seen.add(currentObject).size;
     });
-    console.log("Successfully saved images to database");
+    
+    if (!hasDuplicates) {
+        db.run('CREATE TABLE IF NOT EXISTS posts ( clientId INT NOT NULL, status TEXT NOT NULL, hash CHAR(8) PRIMARY KEY NOT NULL, imageUrl TEXT NOT NULL, localImage TEXT NOT NULL, isTweeted INT NOT NULL, subReddit CHAR(20) NOT NULL, author CHAR(20) NOT NULL);')
+
+        db.serialize(() => {
+            db.run("begin transaction");
+            for (var i = 0; i < redditPosts.length; i++) {
+                    db.run("insert into posts (clientId, status, hash, imageUrl, localImage, isTweeted, subReddit, author) values (?, ?, ?, ?, ?, ?, ?, ?)", 
+                    redditPosts[i].clientId, 
+                    redditPosts[i].status, 
+                    redditPosts[i].hash, 
+                    redditPosts[i].imageUrl, 
+                    redditPosts[i].localImage, 
+                    0, 
+                    redditPosts[i].subReddit, 
+                    redditPosts[i].author
+                );
+            }
+            db.run("commit");
+        });
+        console.log("Successfully saved images to database");
+    } else {
+        console.error("Could not save to the database.")
+    }
 };
 
 const listener = app.listen(process.env.PORT, function() {
