@@ -112,10 +112,10 @@ const tweet = async (twitterClientIndex) => {
 
     if (redditPost) {
         const credits = redditPost.author != 'N/A' ? ` (${redditPost.author})` : '';
-        // const subRedditName = redditPost.subReddit ? ` #${redditPost.subReddit}` : '';
+        const subRedditName = redditPost.subReddit ? ` #${redditPost.subReddit}` : '';
 
-        // let tweet = `${redditPost.status}${credits}${subRedditName}`;
-        let tweet = `${redditPost.status}${credits}`;
+        let tweet = `${redditPost.status}${credits}${subRedditName}`;
+
         // make sure tweet is less than 280 characters
         if (tweet.length > 280) {
             const textToRemove = tweet.length - 280 + 5;
@@ -211,7 +211,7 @@ const saveRedditPosts = async (postsQueue) => {
         db.serialize(() => {
             db.run("begin transaction");
             for (var i = 0; i < redditPosts.length; i++) {
-                    db.run("insert into posts (clientId, status, hash, imageUrl, localImage, isTweeted, subReddit, author) values (?, ?, ?, ?, ?, ?, ?, ?)", 
+                    db.run("insert or ignore into posts (clientId, status, hash, imageUrl, localImage, isTweeted, subReddit, author) values (?, ?, ?, ?, ?, ?, ?, ?)", 
                     redditPosts[i].clientId, 
                     redditPosts[i].status, 
                     redditPosts[i].hash, 
